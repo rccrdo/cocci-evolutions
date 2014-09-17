@@ -26,6 +26,5 @@ expression e;
 +gtk_widget_set_visible (e, TRUE)
 |
 -GTK_WIDGET_SET_FLAGS (e, GTK_HAS_FOCUS)
-+gtk_widget_set_has_focus (e, TRUE)
 )
 
