@@ -1,0 +1,137 @@
+#!/usr/bin/python
+
+# Copyright (c) 2014 Riccardo Lucchese, riccardo.lucchese at gmail.com
+#
+# This software is provided 'as-is', without any express or implied
+# warranty. In no event will the authors be held liable for any damages
+# arising from the use of this software.
+#
+# Permission is granted to anyone to use this software for any purpose,
+# including commercial applications, and to alter it and redistribute it
+# freely, subject to the following restrictions:
+#
+#    1. The origin of this software must not be misrepresented; you must not
+#    claim that you wrote the original software. If you use this software
+#    in a product, an acknowledgment in the product documentation would be
+#    appreciated but is not required.
+#
+#    2. Altered source versions must be plainly marked as such, and must not be
+#    misrepresented as being the original software.
+#
+#    3. This notice may not be removed or altered from any source
+#    distribution.
+
+import os
+import sys
+import argparse
+import time
+
+
+class spatch_header():
+    def __init__(self, path):
+        try:
+            lines = file(path).readlines()
+        except:
+            return
+
+        self._parse_spatch(lines)
+
+    def _parse_spatch(self, lines):
+        if not lines:
+            return
+
+        self._msg = lines[0].replace('// ', '')
+        msg_body = ''.join(lines[2:])
+        msg_body_end = msg_body.find('// ---')
+        self._msg_body = msg_body[:msg_body_end].replace('// ', '')
+
+    def get_msg(self):
+        return self._msg+'\n'+self._msg_body
+
+
+def apply_set(src_path, set_path, signoff):
+    if signoff:
+        signoff = "-s"
+    else:
+        signoff = ""
+    
+    for f in os.listdir(set_path):
+        f = os.path.join(set_path, f)
+        print "visiting ", f
+        if not os.path.isfile(f):
+            continue
+        if not f.endswith(".cocci"):
+            continue
+
+        # ctrl-c
+        time.sleep(0.05)
+
+        s = spatch_header(f)
+        print s.get_msg()
+
+        cmd = "spatch  --in-place --dir %s --sp-file %s" % (src_path, f)
+        print cmd
+        os.system(cmd)
+
+        msg_path = os.path.abspath('commit-msg.tmp')
+        print "commit message temp ", msg_path
+        file(msg_path, 'w').write(s.get_msg())
+
+        cmd = "git diff --stat"
+        print cmd
+        os.system(cmd)
+
+        cmd = "git commit -a %s -F %s" % (signoff, msg_path)
+        print cmd
+        os.system(cmd)
+        os.unlink(msg_path)
+
+
+def main():
+    import argparse
+
+    parser = argparse.ArgumentParser(prog="apply-spatch-set", description='Apply a set of semantic patches using coccinelle.')
+    parser.add_argument('--src', dest='src_path', action='store',
+                        default=None, help='The path to the git repo')
+    parser.add_argument('--set', dest='set_path', action='store',
+                        default=None, help='The path to the set of semantic patches')
+    parser.add_argument('--signoff', dest='signoff', action='store_true',
+                        default=False, help='Sign-off commits')
+
+    args = parser.parse_args()
+
+    if not args.src_path:
+        print "error: no source tree specified."
+        parser.print_help()
+        sys.exit(1)
+    if not os.path.isdir(args.src_path):
+        print "error: source tree path \"%s\" is not a directory." % args.src_path
+        parser.print_help()
+        sys.exit(1)
+
+    git_dir = os.path.join(args.src_path, '.git')
+    if not os.path.isdir(git_dir):
+        print "error: source tree path \"%s\" is not a git repository." % args.src_path
+        parser.print_help()
+        sys.exit(1)
+
+    if not args.set_path:
+        print "error: no spatch set specified."
+        parser.print_help()
+        sys.exit(1)
+    if not os.path.isdir(args.set_path):
+        print "error: spatch set path \"%s\" is not a directory." % args.set_path
+        parser.print_help()
+        sys.exit(1)
+
+    os.environ['GIT_WORK_TREE'] = args.src_path
+    os.environ['GIT_DIR'] = git_dir
+    apply_set(args.src_path, args.set_path, args.signoff)
+
+
+if __name__ == "__main__":
+    main()
+    sys.exit(0)
+
+
+

@@ -1,0 +1,9 @@
+This tool automates the task of applying a set of semantic patches
+using coccinelle (http://coccinelle.lip6.fr/). This is really just a
+collection of semantic patches and a wrapper to invoke
+coccinelle. Needless to say, you should always check the results.
+
+At this point in time, only local git repositories are supported and
+there is only a small set of semantic patches to help porting Gtk+ 2
+applications to Gtk+ 3.
+
